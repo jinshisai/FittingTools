@@ -203,42 +203,15 @@ def measure_vgrad(fname, p0, rfit=None, dist=140.,
 
 
 if __name__ == '__main__':
-	fitsdata = ['../fitsimages/iras15398_c18o21_comb_aca-apex_v3_dv011_pbcor_moments_sig5.fits',
-	'../fitsimages/l1527_c18o21_comb_aca-iram30m_v3_dv0084_pbcor_moments_sig5.fits',
-	'../fitsimages/tmc-1a_c18o21_comb_aca-iram30m_v3_dv0084_pbcor_moments_sig5.fits',
-	'../fitsimages/l1489_c18o21_aca_iram30m_combv5_cintr_pbcor_moments_sig5.fits']
-
-	outname  = 'measure_vgrad_werr_res'
-
-	obs      = ['b228', 'l1527', 'tmc-1a', 'l1489']
-
-	p0s      = [[5.4,-0.0005, -0.001],
-	[5.4,-0.001, -0.001],
-	[6.4,-0.005, -0.005],
-	[7.2, -0.005, -0.005]
-	]
-
+	fitsdata = 'l1489_c18o21_aca_iram30m_combv5_cintr_pbcor_moments_sig5.fits'
+	outname  = 'measure_vgrad_res'
+	p0 = [7.2, -0.005, -0.005]
 	imscale=[-60,60,-60,60]
 
-	# loop
-	for s in range(len(obs)):
-		source    = obs[s]
-		outname_s = outname + '_' + source
-		p0        = p0s[s]
-		fits_s    = fitsdata[s]
+	# with recording
+	with open(outname + '.txt', mode='w+') as f:
+		f.write('v0 v0_err vgrad vgrad_err th_vgrad th_vgrad_err\n')
+		f.write('#km/s km/s km/s/pc km/s/pc degree degree\n\n')
+		v0, v0_err, vgrad, vgrad_err, th_vgrad, th_vgrad_err = measure_vgrad(fitsdata, p0)
 
-
-		rfit_list = np.arange(10.,70.,10.)
-		nrfit     = len(rfit_list)
-
-		with open(outname_s + '.txt', mode='w+') as f:
-			f.write('r_fit v0 v0_err vgrad vgrad_err th_vgrad th_vgrad_err\n')
-			f.write('#arcsec km/s km/s km/s/pc km/s/pc degree degree\n')
-			f.write('#r_fit: radius range for the fit (arcsec)\n\n')
-
-			for i in range(nrfit):
-				rfit = rfit_list[i]
-				v0, v0_err, vgrad, vgrad_err, th_vgrad, th_vgrad_err = measure_vgrad(fits_s, p0, rfit=rfit,
-				 outname=outname, outfig=False)
-
-				f.write('%i %.3e %.3e %.3e %.3e %.3e %.3e\n'%(rfit, v0, v0_err, vgrad, vgrad_err, th_vgrad, th_vgrad_err))
+		f.write('%.3e %.3e %.3e %.3e %.3e %.3e\n'%(v0, v0_err, vgrad, vgrad_err, th_vgrad, th_vgrad_err))

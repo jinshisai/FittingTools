@@ -18,6 +18,7 @@ import corner
 from typing import Callable
 from multiprocessing.dummy import Pool
 
+from .funcs import gauss1d
 
 
 ### Functions for MCMC
@@ -198,13 +199,12 @@ class BayesEstimator():
         else:
             p_fit = np.empty((3, ndim))
         print('Best paramters')
-        print('Credible interval: %i percent'%(credible_interval*100.))
-        print('Parameter mid lower upper')
         with open(out_text, '+w') as f:
             f.write('# Fitting results\n')
             f.write('# Date: '+ dtstr + '\n')
             # results + error
             if symmetric_error:
+                print('mean 1sigma')
                 f.write('# param mean sigma\n')
                 for i in range(ndim):
                     hist, bin_e = np.histogram(samples[:, i], bins=int(np.sqrt(len(samples[:, i]))))
@@ -216,6 +216,8 @@ class BayesEstimator():
                     f.write(outtxt)
                     p_fit[:,i] = [p_mcmc[1], p_mcmc[2]]
             else:
+                print('Credible interval: %i percent'%(credible_interval*100.))
+                print('mode lower upper')
                 f.write('# param 50th %ith %ith\n'%(50*(1. - credible_interval), 50*(1. + credible_interval)))
                 for i in range(ndim):
                     p_mcmc = np.percentile(samples[:, i], 

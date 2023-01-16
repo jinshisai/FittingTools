@@ -3,8 +3,8 @@
 # modules
 import numpy as np
 import scipy.optimize as op
-from mps import BayesEstimator
-from mps.funcs import gaussian2d, gauss1d
+from mpe import BayesEstimator
+from mpe.funcs import gaussian2d, gauss1d
 
 # functions
 def lnlike(params, d, derr, fmodel, *x):
@@ -38,7 +38,7 @@ def main():
 
     be = BayesEstimator([xx, yy], d_sim, sig_d, gaussian2d)
     be.run_mcmc(pini, pranges, outname='test_wrap_mcmc_2d',
-        nrun=1000, nburn=200,)# nwalkers=10)
+        nrun=1000, nburn=200, symmetric_error=False)# nwalkers=10)
     #print(be.criterion)
 
 if __name__ == '__main__':

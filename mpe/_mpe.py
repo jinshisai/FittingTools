@@ -36,7 +36,6 @@ def lnlike(params, d, derr, fmodel, *x):
 
     # Likelihood function (in log)
     exp = -0.5*np.nansum((d-model)**2/(derr*derr) + np.log(2.*np.pi*derr*derr))
-    print(exp)
     if np.isnan(exp):
         return -np.inf
     else:

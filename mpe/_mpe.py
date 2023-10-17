@@ -35,7 +35,8 @@ def lnlike(params, d, derr, fmodel, *x):
     model = fmodel(*x, *params)
 
     # Likelihood function (in log)
-    exp = -0.5*np.sum((d-model)**2/(derr*derr) + np.log(2.*np.pi*derr*derr))
+    exp = -0.5*np.nansum((d-model)**2/(derr*derr) + np.log(2.*np.pi*derr*derr))
+    print(exp)
     if np.isnan(exp):
         return -np.inf
     else:
@@ -82,7 +83,8 @@ class BayesEstimator():
     def run_mcmc(self, pini, pranges, outname=None,
         nwalkers=None, nrun=5000, nburn=500, labels=[], show_progress=True,
         f_rand_init=0.1, credible_interval=0.68, show_results=True,
-        optimize_ini=True, moves=emcee.moves.WalkMove(), symmetric_error=False):
+        optimize_ini=True, moves=emcee.moves.WalkMove(), symmetric_error=False,
+        npool=4):
         '''
         A wrapper to run MCMC with emcee.
 
@@ -159,7 +161,7 @@ class BayesEstimator():
         self.nrun = nrun
 
         # Multi processing
-        with Pool() as pool:
+        with Pool(npool) as pool:
             # Choose sampler
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                     args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],

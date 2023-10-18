@@ -160,11 +160,19 @@ class BayesEstimator():
         self.nrun = nrun
 
         # Multi processing
-        with Pool(npool) as pool:
+        if npool > 1:
+            with Pool(npool) as pool:
+                # Choose sampler
+                sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
+                        args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],
+                        pool=pool, moves=moves,)
+                # Run nrun steps showing progress
+                results = sampler.run_mcmc(p0, nrun, progress=True)
+        else:
             # Choose sampler
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                     args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],
-                    pool=pool, moves=moves,)
+                    moves=moves,)
             # Run nrun steps showing progress
             results = sampler.run_mcmc(p0, nrun, progress=True)
         self.sampler = sampler

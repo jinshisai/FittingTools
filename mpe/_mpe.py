@@ -17,6 +17,7 @@ import emcee
 import corner
 from typing import Callable
 from multiprocessing.dummy import Pool
+import gc
 
 from .funcs import gauss1d
 
@@ -83,7 +84,7 @@ class BayesEstimator():
         nwalkers=None, nrun=5000, nburn=500, labels=[], show_progress=True,
         f_rand_init=0.1, credible_interval=0.68, show_results=True,
         optimize_ini=True, moves=emcee.moves.WalkMove(), symmetric_error=False,
-        npool=4):
+        npool=4, errtype='gauss'):
         '''
         A wrapper to run MCMC with emcee.
 
@@ -111,9 +112,9 @@ class BayesEstimator():
             outname = 'modelfit'
 
         # Output name
-        out_stepconv = outname + '_mcmc_stepconvgnc.pdf'
+        out_chain    = outname + '_mcmc_chain'
         out_triangle = outname + '_mcmc_triangle.pdf'
-        out_text     = outname + '_mcmc_fitresults.txt'
+        out_text     = outname + '_mcmc_results.txt'
 
         # Param labels
         if len(labels) == 0:
@@ -174,26 +175,33 @@ class BayesEstimator():
                     args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],
                     moves=moves,)
             # Run nrun steps showing progress
-            results = sampler.run_mcmc(p0, nrun, progress=True)
+            results = sampler.run_mcmc(p0, nrun, progress=True,)
         self.sampler = sampler
         self.results = results
 
         # Result figures
-        #  1st: Chain
-        fig, axes = plt.subplots(ndim, 1, figsize=(11.69, 8.27), sharex=True)
-        xplot = np.arange(nburn, nrun, 1)
-        for i, ax in enumerate(axes):
-            chain_plot = np.array(
-            [ax.plot(xplot, sampler.chain[iwalk,nburn:,i].T, 'k')
-             for iwalk in range(nwalkers)])
-            ax.set_ylabel(labels[i])
-            ax.tick_params(which='both', direction='in',
-                bottom=True, top=True, left=True, right=True, labelbottom=False)
-        # x-label
-        axes[0].set_xlim(nburn,nrun)
-        axes[-1].tick_params(labelbottom=True)
-        axes[-1].set_xlabel('Step number')
-        fig.savefig(out_stepconv, transparent=True)
+        #  Chain plot
+        for n0, fout in zip(
+            [0, nburn], 
+            [out_chain + '_full.pdf', out_chain + '_conv.pdf']):
+            fig, axes = plt.subplots(ndim, 1, figsize=(11.69, 8.27), sharex=True)
+            xplot = np.arange(n0, nrun, 1)
+            for i, ax in enumerate(axes):
+                chain_plot = np.array(
+                [ax.plot(xplot, sampler.chain[iwalk,n0:,i].T, 'k')
+                 for iwalk in range(nwalkers)])
+                ax.set_ylabel(labels[i])
+                ax.tick_params(which='both', direction='in',
+                    bottom=True, top=True, left=True, right=True, labelbottom=False)
+            # x-label
+            axes[0].set_xlim(n0,nrun)
+            axes[-1].tick_params(labelbottom=True)
+            axes[-1].set_xlabel('Step number')
+            fig.savefig(fout, transparent=True)
+            if show_results:
+                plt.show()
+            else:
+                plt.close()
 
 
         # Burn first nburn steps
@@ -218,12 +226,18 @@ class BayesEstimator():
                 for i in range(ndim):
                     hist, bin_e = np.histogram(samples[:, i], bins=int(np.sqrt(len(samples[:, i]))))
                     bin_c = 0.5*(bin_e[:-1] + bin_e[1:])
-                    p_mcmc, _ = op.curve_fit(gauss1d, bin_c, hist, 
-                        p0=[np.nanmax(hist), np.mean(samples[:, i]), np.std(samples[:, i])])
-                    outtxt = '%s %13.6e %13.6e\n'%(labels[i], p_mcmc[1], p_mcmc[2])
+                    if errtype == 'gauss':
+                        p_mcmc, _ = op.curve_fit(gauss1d, bin_c, hist, 
+                            p0=[np.nanmax(hist), np.mean(samples[:, i]), np.std(samples[:, i])])
+                        mn = p_mcmc[1]
+                        err = p_mcmc[2]
+                    else:
+                        mn = np.mean(samples[:, i])
+                        err = np.std(samples[:, i])
+                    outtxt = '%s %13.6e %13.6e\n'%(labels[i], mn, err)
                     print(outtxt)
                     f.write(outtxt)
-                    p_fit[:,i] = [p_mcmc[1], p_mcmc[2]]
+                    p_fit[:,i] = [mn, err]
             else:
                 print('Credible interval: %i percent'%(credible_interval*100.))
                 print('mode lower upper')
@@ -240,10 +254,7 @@ class BayesEstimator():
         # Half triangle plot
         fig2 = corner.corner(samples, labels=labels)#, quantiles=[0.16, 0.5, 0.84])
         fig2.savefig(out_triangle, transparent=True)
-        if show_results:
-            plt.show()
-        else:
-            plt.close()
+        if show_results: plt.show()
 
         self.pfit = p_fit
         self.get_criterion()

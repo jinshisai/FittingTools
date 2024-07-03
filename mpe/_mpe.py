@@ -17,7 +17,7 @@ import emcee
 import corner
 from typing import Callable
 from multiprocessing.dummy import Pool
-from mpipool import MPIPool
+#from mpipool import MPIPool
 import gc
 
 from .funcs import gauss1d

@@ -37,7 +37,7 @@ def main():
     # ------------------------------------
 
     be = BayesEstimator([xx, yy], d_sim, sig_d, gaussian2d)
-    be.run_mcmc(pini, pranges, outname='test_wrap_mcmc_2d',
+    be.run_mcmc(pini, pranges, outname='example_mpe-mcmc_2d',
         nrun=1000, nburn=200, symmetric_error=False)# nwalkers=10)
     #print(be.criterion)
 

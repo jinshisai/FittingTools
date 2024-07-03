@@ -17,6 +17,7 @@ import emcee
 import corner
 from typing import Callable
 from multiprocessing.dummy import Pool
+from mpipool import MPIPool
 import gc
 
 from .funcs import gauss1d
@@ -83,8 +84,8 @@ class BayesEstimator():
     def run_mcmc(self, pini, pranges, outname=None,
         nwalkers=None, nrun=5000, nburn=500, labels=[], show_progress=True,
         f_rand_init=0.1, credible_interval=0.68, show_results=True,
-        optimize_ini=True, moves=emcee.moves.WalkMove(), symmetric_error=False,
-        npool=4, errtype='gauss'):
+        optimize_ini=True, moves=emcee.moves.StretchMove(), symmetric_error=False,
+        npool=1, errtype='gauss', savefig = True, savesampler = True):
         '''
         A wrapper to run MCMC with emcee.
 
@@ -112,9 +113,9 @@ class BayesEstimator():
             outname = 'modelfit'
 
         # Output name
-        out_chain    = outname + '_mcmc_chain'
-        out_triangle = outname + '_mcmc_triangle.pdf'
-        out_text     = outname + '_mcmc_results.txt'
+        out_chain    = outname + '_chain'
+        out_triangle = outname + '_triangle.pdf'
+        out_text     = outname + '_results.txt'
 
         # Param labels
         if len(labels) == 0:
@@ -148,6 +149,14 @@ class BayesEstimator():
         p0 = [pini + random[:,i] for i in range(nwalkers)]
 
 
+        # save samples?
+        if savesampler:
+            backend = emcee.backends.HDFBackend(outname + '_sample.h5')
+            backend.reset(nwalkers, ndim)
+        else:
+            backend = None
+
+
         # Begin MCMC run
         print ('Run MCMC!')
 
@@ -166,42 +175,18 @@ class BayesEstimator():
                 # Choose sampler
                 sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                         args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],
-                        pool=pool, moves=moves,)
+                        pool=pool, moves=moves, backend = backend)
                 # Run nrun steps showing progress
                 results = sampler.run_mcmc(p0, nrun, progress=True)
         else:
             # Choose sampler
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                     args=[self.pranges, self.data, self.sig_d, self.model, *self.axes],
-                    moves=moves,)
+                    moves=moves, backend = backend)
             # Run nrun steps showing progress
             results = sampler.run_mcmc(p0, nrun, progress=True,)
         self.sampler = sampler
         self.results = results
-
-        # Result figures
-        #  Chain plot
-        for n0, fout in zip(
-            [0, nburn], 
-            [out_chain + '_full.pdf', out_chain + '_conv.pdf']):
-            fig, axes = plt.subplots(ndim, 1, figsize=(11.69, 8.27), sharex=True)
-            xplot = np.arange(n0, nrun, 1)
-            for i, ax in enumerate(axes):
-                chain_plot = np.array(
-                [ax.plot(xplot, sampler.chain[iwalk,n0:,i].T, 'k')
-                 for iwalk in range(nwalkers)])
-                ax.set_ylabel(labels[i])
-                ax.tick_params(which='both', direction='in',
-                    bottom=True, top=True, left=True, right=True, labelbottom=False)
-            # x-label
-            axes[0].set_xlim(n0,nrun)
-            axes[-1].tick_params(labelbottom=True)
-            axes[-1].set_xlabel('Step number')
-            fig.savefig(fout, transparent=True)
-            if show_results:
-                plt.show()
-            else:
-                plt.close()
 
 
         # Burn first nburn steps
@@ -251,10 +236,32 @@ class BayesEstimator():
                     f.write(outtxt)
                     p_fit[:,i] = [p_mcmc[1], q[0], q[1]]
 
-        # Half triangle plot
-        fig2 = corner.corner(samples, labels=labels)#, quantiles=[0.16, 0.5, 0.84])
-        fig2.savefig(out_triangle, transparent=True)
-        if show_results: plt.show()
+        # Result figures
+        if any([show_results, savefig]):
+            # Chain plot
+            for n0, fout in zip(
+                [0, nburn], 
+                [out_chain + '_full.pdf', out_chain + '_conv.pdf']):
+                fig, axes = plt.subplots(ndim, 1, figsize=(11.69, 8.27), sharex=True)
+                xplot = np.arange(n0, nrun, 1)
+                for i, ax in enumerate(axes):
+                    chain_plot = np.array(
+                    [ax.plot(xplot, sampler.chain[iwalk,n0:,i].T, 'k')
+                     for iwalk in range(nwalkers)])
+                    ax.set_ylabel(labels[i])
+                    ax.tick_params(which='both', direction='in',
+                        bottom=True, top=True, left=True, right=True, labelbottom=False)
+                # x-label
+                axes[0].set_xlim(n0,nrun)
+                axes[-1].tick_params(labelbottom=True)
+                axes[-1].set_xlabel('Step number')
+                if savefig: fig.savefig(fout, transparent=True)
+                if show_results: plt.show()
+
+            # Corner plot
+            fig2 = corner.corner(samples, labels=labels)#, quantiles=[0.16, 0.5, 0.84])
+            if savefig: fig2.savefig(out_triangle, transparent=True)
+            if show_results: plt.show()
 
         self.pfit = p_fit
         self.get_criterion()
